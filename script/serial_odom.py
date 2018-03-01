@@ -24,7 +24,6 @@ class SerialOdom:
 		self.enable_tf = rospy.get_param("~enable_tf", True)
 		self.device_port = rospy.get_param('~port', '/dev/ttyACM0') # port
 		self.baudrate = int( rospy.get_param('~baudrate', '57600') ) # baudrate
-		self.pub_tf = bool(rospy.get_param('~pub_tf', True)) # whether to publish TF or not
 		self.comm_freq = float( rospy.get_param('~odom_freq', '10') ) # hz of communication
 		#self.wheelSep = float( rospy.get_param('~wheel_separation', '0.158') ) # unit: meter 
 		#self.wheelRad = float( rospy.get_param('~wheel_radius', '0.032') ) # unit: meter
@@ -39,7 +38,6 @@ class SerialOdom:
 		rospy.get_param("~enable_tf", self.enable_tf)
 		rospy.get_param("~port", self.device_port)
 		rospy.get_param("~baudrate", self.baudrate)
-		rospy.get_param("~pub_tf", self.pub_tf)
 		rospy.get_param("~odom_freq", self.comm_freq)
 		
 		rospy.loginfo("Publishing odometry: " + self.odom_topic)
