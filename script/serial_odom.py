@@ -31,7 +31,7 @@ class SerialOdom:
 		#self.VxCov = float( rospy.get_param('~vx_cov', '1.0') ) # covariance for Vx measurement
 		#self.VyawCov = float( rospy.get_param('~vyaw_cov', '1.0') ) # covariance for Vyaw measurement
 		#self.debug_mode = bool(rospy.get_param('~debug_mode', False)) # true for detail info        
-		self.timeout = float( rospy.get_param('/timeout', '10') ) # hz of odom pub
+		self.timeout = float( rospy.get_param('~timeout', '10') ) # hz of odom pub
 		
 		rospy.set_param("~odom_topic", self.odom_topic)
 		rospy.set_param("~base_id", self.baseId)
@@ -84,6 +84,8 @@ class SerialOdom:
 			self.serial = serial.Serial(self.device_port, self.baudrate, timeout=self.timeout)
 		except:
 			rospy.logerr("serial err")
+			self.serial.close
+			sys.exit(0)
 
 		# reading loop 
 	def serial_handle(self):
