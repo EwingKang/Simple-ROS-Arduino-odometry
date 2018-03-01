@@ -48,8 +48,8 @@ public:
 			v_y = 0;
 			omega = 0;
 		}else{
-			v_x = dx / dt;
-			v_y = dy / dt;
+			v_x = ds / dt;
+			v_y = 0;
 			omega = dth / dt; 
 		}
 		return true;
