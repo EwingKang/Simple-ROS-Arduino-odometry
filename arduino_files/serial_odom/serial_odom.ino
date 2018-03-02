@@ -14,7 +14,7 @@
 #define WHEEL_RAD 0.033f		// wheel radius in m
 #define WHEEL_TOOTH 25		// tooth count
 #define MAX_WHEEL_RPS 2		// maximum wheel revolution per second
-#define L 0.1/2.f			// 2L = wheel distance
+#define B 0.1f			// b = wheel distance
 
 // Main loop settings
 #define PRINT_PERD 750000       // 750 ms is 4/3 Hz
@@ -22,7 +22,7 @@
 #define CAR_PERD 20000			// 20 ms is 50 Hz
 const PROGMEM float expected_log = (float)MAX_WHEEL_RPS * (float)WHEEL_TOOTH / (1000000 / CAR_PERD);
 
-Car duckiebot(6, 7, 4, 5, WHEEL_RAD, WHEEL_TOOTH, L);
+Car duckiebot(6, 7, 4, 5, WHEEL_RAD, WHEEL_TOOTH, B);
 Odom_msg odom;
 Msg_block *msg_block = (Msg_block *)&odom;
 
@@ -123,7 +123,9 @@ void decode_cmd(int &cmd, bool &start) {
 			start = true;
 			enable_msg(odom);
 		}
-	}else {
+	}else if(cmd == 'R') {
+		duckiebot.reset();
+	}else{
 		duckiebot.set_direction(cmd);
 	}
 

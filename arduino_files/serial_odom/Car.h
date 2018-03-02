@@ -6,15 +6,15 @@
 
 class Car {
 public:
-	float L; 	// 2L = wheel separation distance
+	float b; 	// B = wheel separation distance
 	//float pos_cov[36], vel_cov[36];
 	Wheel wheel_L, wheel_R;
 
-	Car(uint8_t pinLA, uint8_t pinLB, uint8_t pinRA, uint8_t pinRB, float wheel_rad, uint8_t wheel_tooth, float l)
+	Car(uint8_t pinLA, uint8_t pinLB, uint8_t pinRA, uint8_t pinRB, float wheel_rad, uint8_t wheel_tooth, float b)
 		:	wheel_L(pinLA, pinLB, wheel_rad, wheel_tooth)
 		,	wheel_R(pinRA, pinRB, wheel_rad, wheel_tooth) 
 	{
-		this -> L = l;
+		this -> b = b;
 	}
 	
 	bool update(const unsigned long &time_now) {
@@ -33,7 +33,7 @@ public:
 		}
 		
 		dS = (ds_L + ds_R) / 2;
-		dth = (ds_R - ds_L) / (2*L);
+		dth = (ds_R - ds_L) / b;
 		dx = dS * cos(theta + dth/2);
 		dy = dS * sin(theta + dth/2);
 		
@@ -48,7 +48,7 @@ public:
 			v_y = 0;
 			omega = 0;
 		}else{
-			v_x = ds / dt;
+			v_x = dS / dt;
 			v_y = 0;
 			omega = dth / dt; 
 		}
