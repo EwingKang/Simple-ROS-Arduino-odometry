@@ -87,7 +87,7 @@ public:
 			last_posA += rise_count;
 			return false;
 		}
-		distance = 2 * M_PI * radius * ((float)rise_count / (float)tooth);
+		distance = radius * 2*M_PI * ((float)rise_count / (float)tooth); // S = r*theta
 		duration = riseA_t[snap_now] - riseA_t[last_visit];
 		last_visit = snap_now;
 		last_posA += rise_count;

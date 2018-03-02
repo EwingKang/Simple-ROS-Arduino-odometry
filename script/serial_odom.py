@@ -137,7 +137,7 @@ class SerialOdom:
 		if self.dataOK :
 			#https://docs.python.org/3/library/struct.html
 			self.seq = struct.unpack('H', self.data[2:4])[0] 		# unsigned int 2B
-			self.t_micro = struct.unpack('I', self.data[4:8])[0] 		# unsigned long 4B, in arduino Micros() format
+			self.t_micro = struct.unpack('I', self.data[4:8])[0] 	# unsigned long 4B, arduino Micros()
 			self.x = struct.unpack('f', self.data[8:12])[0] 			# float 4B
 			self.y = struct.unpack('f', self.data[12:16])[0]
 			self.th = struct.unpack('f', self.data[16:20])[0]
@@ -172,73 +172,6 @@ class SerialOdom:
 				self.serial_cmd = 'C'
 			else:
 				self.serial_cmd = ' '
-	
-	'''ORIGINAL, not sure y its here
-	def timerOdomCB(self, event):
-		# Serial read & publish 
-		try:           
-			data = self.data            
-			# Normal mode            
-			if len(data) == 6:
-				WL = float( (int(data[2].encode('hex'),16)*256 + int(data[3].encode('hex'),16) -500)*100.0/1560.0*2*math.pi ) # unit: rad/sec
-				WR = float( (int(data[4].encode('hex'),16)*256 + int(data[5].encode('hex'),16) -500)*100.0/1560.0*2*math.pi )
-			else:
-				print 'Error Value! header1: ' + str(int(data[0].encode('hex'),16)) + ', header2: ' + str(int(data[1].encode('hex'),16))          
-
-			# Twist
-			VL = WL * self.wheelRad # V = omega * radius, unit: m/s
-			VR = WR * self.wheelRad
-			Vyaw = (VR-VL)/self.wheelSep
-			Vx = (VR+VL)/2.0
-
-			# Pose
-			self.current_time = rospy.Time.now()
-			dt = (self.current_time - self.previous_time).to_sec()
-			self.previous_time = self.current_time
-			self.pose_x   = self.pose_x   + Vx * math.cos(self.pose_yaw) * dt
-			self.pose_y   = self.pose_y   + Vx * math.sin(self.pose_yaw) * dt
-			self.pose_yaw = self.pose_yaw + Vyaw * dt
-			pose_quat = tf.transformations.quaternion_from_euler(0,0,self.pose_yaw)
-			
-			# Publish Odometry
-			msg = Odometry()
-			msg.header.stamp = self.current_time
-			msg.header.frame_id = self.odomId
-			msg.child_frame_id  = self.baseId
-			msg.pose.pose.position.x = self.pose_x
-			msg.pose.pose.position.y = self.pose_y
-			msg.pose.pose.position.z = 0.0
-			msg.pose.pose.orientation.x =  pose_quat[0]
-			msg.pose.pose.orientation.y =  pose_quat[1]
-			msg.pose.pose.orientation.z =  pose_quat[2]
-			msg.pose.pose.orientation.w =  pose_quat[3]
-			msg.twist.twist.linear.x = Vx
-			msg.twist.twist.angular.z = Vyaw
-			for i in range(36):
-				msg.twist.covariance[i] = 0
-			msg.twist.covariance[0] = self.VxCov
-			msg.twist.covariance[35] = self.VyawCov
-			msg.pose.covariance = msg.twist.covariance
-			self.pub.publish(msg)
-
-			# TF Broadcaster
-			if self.pub_tf:
-				self.tf_broadcaster.sendTransform( (self.pose_x, self.pose_y, 0.0), pose_quat, self.current_time, self.baseId, self.odomId)          
-
-			# Debug mode                      
-			if self.debug_mode: 
-				if len(data) == 6:
-					header_1 = int(data[0].encode('hex'),16)
-					header_2 = int(data[1].encode('hex'),16)
-					tx_1 = int(data[2].encode('hex'),16)
-					tx_2 = int(data[3].encode('hex'),16)
-					tx_3 = int(data[4].encode('hex'),16)
-					tx_4 = int(data[5].encode('hex'),16) 
-					rospy.loginfo("[Debug] header_1:%4d, header_2:%4d, tx_1:%4d, tx_2:%4d, tx_3:%4d, tx_4:%4d", header_1, header_2, tx_1, tx_2, tx_3, tx_4 )
-			
-		except: 
-			#rospy.loginfo("Error in sensor value !") 
-			pass   '''         
 		
 	def odomPub(self, event):
 		if self.serialOK:
