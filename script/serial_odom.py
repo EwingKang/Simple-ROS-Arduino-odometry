@@ -18,7 +18,7 @@ class SerialOdom:
 	def __init__(self):
 		# Get params
 		
-		self.odom_topic = rospy.get_param("~odom_topic", '/odom')
+		self.odom_topic = rospy.get_param("~odom_topic", 'odom')
 		self.baseId = rospy.get_param('~base_id', 'base_link') # base frame id
 		self.odomId = rospy.get_param('~odom_id', 'odom') # odom frame id
 		self.enable_tf = rospy.get_param("~enable_tf", True)
