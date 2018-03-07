@@ -15,7 +15,50 @@ Please make sure you have the following items setup or at least you know what yo
 * [ROS installed](http://wiki.ros.org/kinetic/Installation/Ubuntu) (tested in ROS-kinetic) 
 * [have a ROS catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace) (it is recommanded to put your source into .bashrc) 
 * [Install the Arduino IDE](https://www.arduino.cc/en/Guide/Linux) ( I recommand to put the Arduino IDE under /opt/ before running install.sh ) 
+* You'll need some way to publish your wheel command on topic "encoder" with type geometry_msgs.msg::Vector3. vec.x() is the left wheel, while vec.y() is the right. Grater than zero ( > 0) means forward, (<0) backward, (=0) means stop.
 
+### Costumization  
+To make sure you have the best result, it is necessary to make sure you have your parameters set-up, both in the script and on the Arduino.
+
+* For Arduino program  
+    A. Physical parameters:
+    ```
+    #define WHEEL_RAD 0.033f	// wheel radius in m
+    #define WHEEL_TOOTH 25		// tooth count
+    #define B 0.1f		        // b = distance between wheels
+    ```  
+    B. Loop system  
+    ```
+    #define SERIAL_PERD 100000  // Serial tx/rx check period, 100 ms is 10 Hz
+    #define CAR_PERD 20000	    // Main calculation period, 20 ms is 50 Hz
+    ```  
+    C. Encoder interrupt memory (important)
+    You have to make sure your expected_log < ENCODER_LOG_SIZ is true. For simplicity, the program will not raise any warning if you have any incorrect settings. Detailed explaination is in the Arduino section [below](#arduino).
+    ```
+    #define ENCODER_LOG_SIZE 20
+    ...
+    #define MAX_WHEEL_RPS 2		// maximum wheel revolution per second
+    expected_log = (float)MAX_WHEEL_RPS * (float)WHEEL_TOOTH / (1000000 / CAR_PERD);
+    ```  
+* For python script
+  make sure your
+  ```
+  self.comm_freq = float( rospy.get_param('~odom_freq', '15') ) # hz of communication
+  ```
+  is higher than the rate the Arduino sends the message. For example:
+  ```
+  ***THIS IS GOOD***
+  #define SERIAL_PERD 100000  // Serial tx/rx check period, 100 ms is 10 Hz
+  ---------
+  self.comm_freq = float( rospy.get_param('~odom_freq', '15') ) # hz of communication
+  ```
+  If you recieve less frequently than the transmit rate, packet will be lost and you'll potentially have a jumping odometry. Equal rate is not a good idea since simetimes there might be a slight difference between system clock, For example
+  ```
+  ***THIS IS BAD***
+  #define SERIAL_PERD 100000  // Serial tx/rx check period, 100 ms is 10 Hz
+  ---------
+  self.comm_freq = float( rospy.get_param('~odom_freq', '10') ) # hz of communication
+  ```
 ### Installation
 
 1. Go to your catkin directory, clone the project into folder /serial_odom.
@@ -35,8 +78,15 @@ Please make sure you have the following items setup or at least you know what yo
 4. Upload the Arduino code with Arduino IDE
 
 ### Run the node
-stuff
-  
+Hook up all your cable, make sure you have the correct device (in this case /dev/ttyACM0), and simply rosrun:
+```
+rosrun serial_odom serial_odom.py _port:=/dev/ttyACM0
+```
+The code will reset the Arduino automatically, and you'll see:
+1. Arduino waiting for communication
+2. Arduino start sending odometry packet, serial is syncing 
+3. Serial is synced and first decodable packet will have a mismatched sequence number.
+4. Now the serial odometry is working.
   
 ## Project details  
 
