@@ -17,18 +17,13 @@ from nav_msgs.msg import Odometry
 class SerialOdom:
 	def __init__(self):
 		# Get params
-		
 		self.odom_topic = rospy.get_param("~odom_topic", 'odom')
 		self.baseId = rospy.get_param('~base_id', 'base_link') # base frame id
 		self.odomId = rospy.get_param('~odom_id', 'odom') # odom frame id
 		self.enable_tf = rospy.get_param("~enable_tf", True)
 		self.device_port = rospy.get_param('~port', '/dev/ttyACM0') # port
 		self.baudrate = int( rospy.get_param('~baudrate', '57600') ) # baudrate
-		self.comm_freq = float( rospy.get_param('~odom_freq', '10') ) # hz of communication
-		#self.wheelSep = float( rospy.get_param('~wheel_separation', '0.158') ) # unit: meter 
-		#self.wheelRad = float( rospy.get_param('~wheel_radius', '0.032') ) # unit: meter
-		#self.VxCov = float( rospy.get_param('~vx_cov', '1.0') ) # covariance for Vx measurement
-		#self.VyawCov = float( rospy.get_param('~vyaw_cov', '1.0') ) # covariance for Vyaw measurement
+		self.comm_freq = float( rospy.get_param('~odom_freq', '15') ) # hz of communication
 		#self.debug_mode = bool(rospy.get_param('~debug_mode', False)) # true for detail info        
 		self.timeout = float( rospy.get_param('~timeout', '10') ) # hz of odom pub
 		
@@ -41,7 +36,6 @@ class SerialOdom:
 		rospy.get_param("~odom_freq", self.comm_freq)
 		
 		rospy.loginfo("Publishing odometry: " + self.odom_topic)
-
 		# ROS handler        
 		self.encsub = rospy.Subscriber('encoder', Vector3, self.wheelcmdSub, queue_size=10)
 		self.pub = rospy.Publisher(self.odom_topic, Odometry, queue_size=10)   
@@ -229,10 +223,3 @@ if __name__ == "__main__":
 	thread.join()
 	so.serial.close()     
 	rospy.signal_shutdown("user ends")
-	'''except KeyboardInterrupt:
-		print("Shutting down")
-		so.stopThread()
-		thread.join()
-		so.serial.close()     
-		rospy.signal_shutdown()
-	'''
