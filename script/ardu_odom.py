@@ -19,9 +19,7 @@ class ArduOdom:
 		#======== Get params =========#
 		self.param = {}			# create a dictionary
 		#self.debug_mode = bool(rospy.get_param('~debug_mode', False)) # true for detail info        
-		self.param["vel_cmd"] = rospy.get_param("~cmd_vel", 'cmd_vel')
-		self.param["cmd_timeout"] = float( rospy.get_param('~cmd_vel_timeout', '3') ) #
-		
+			
 		self.param["odom_topic"] = rospy.get_param("~odom_topic", 'odom')
 		self.param["baseId"] = rospy.get_param('~base_id', 'base_link') # base frame id
 		self.param["odomId"] = rospy.get_param('~odom_id', 'odom') # odom frame id
@@ -34,10 +32,11 @@ class ArduOdom:
 		self.param["tx_freq"] = float( rospy.get_param('~tx_freq', '5') )      # hz of communication
 		
 		self.param["quadrature"] = rospy.get_param("~quadrature", True)
-		self.param["vel_gain"] = float( rospy.get_param('~vel_gain', '70') ) # hz of communication
-		self.param["omg_gain"] = float( rospy.get_param('~omg_gain', '500') ) # hz of communication
+		self.param["vel_cmd"] = rospy.get_param("~cmd_vel", 'cmd_vel')
+		self.param["cmd_timeout"] = float( rospy.get_param('~cmd_vel_timeout', '3') ) #
+	
 		
-		rospy.set_param("omni_base_driver", self.param)		# set ros param
+		rospy.set_param("serial_odom", self.param)		# set ros param
 		
 		#========== ROS message ==========#
 		rospy.loginfo("Initiating Node")
@@ -96,9 +95,9 @@ class ArduOdom:
 		ROS cmd_vel Subscriber callback
 	*******************************************************************'''
 	def cmdvel_cb(self, vel_cmd):
-		self.veh_cmd["Vx"] = vel_cmd.linear.x * self.param["vel_gain"]
-		self.veh_cmd["Vy"] = vel_cmd.linear.y * self.param["vel_gain"]
-		self.veh_cmd["Omega"] = vel_cmd.angular.z * self.param["omg_gain"]
+		self.veh_cmd["Vx"] = vel_cmd.linear.x
+		self.veh_cmd["Vy"] = vel_cmd.linear.y
+		self.veh_cmd["Omega"] = vel_cmd.angular.z
 		self.no_cmd_received = False
 		self.last_cmd_vel_time = time.time()
 		
