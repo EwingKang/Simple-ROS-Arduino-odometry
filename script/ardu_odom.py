@@ -32,8 +32,8 @@ class ArduOdom:
 		self.param["tx_freq"] = float( rospy.get_param('~tx_freq', '5') )      # hz of communication
 		
 		self.param["quadrature"] = rospy.get_param("~quadrature", True)
-		self.param["vel_cmd"] = rospy.get_param("~cmd_vel", 'cmd_vel')
-		self.param["cmd_timeout"] = float( rospy.get_param('~cmd_vel_timeout', '3') ) #
+		self.param["vel_cmd"] = rospy.get_param("~cmd_vel", 'cmd_vel')		# sub topic, only effective if not quadrature type
+		self.param["cmd_timeout"] = float( rospy.get_param('~cmd_vel_timeout', '3') ) # set speed 0 after this seconds, only effective if not quadrature type
 	
 		
 		rospy.set_param("serial_odom", self.param)		# set ros param
