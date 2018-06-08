@@ -9,38 +9,124 @@ I started this project because I'm done with rosserial: it is just too bulky for
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
 
 ### Prerequisites
-Tested and built with ROS-kinetic with Ubuntu 16.04LTS, but should work with any version near enough. 
-Also I have Python 2.7. 
-Please make sure you have the following items setup or at least you know what you're doing: 
-* [ROS installed](http://wiki.ros.org/kinetic/Installation/Ubuntu) (tested in ROS-kinetic) 
-* [have a ROS catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace) (it is recommanded to put your source into .bashrc) 
-* [Install the Arduino IDE](https://www.arduino.cc/en/Guide/Linux) ( I recommand to put the Arduino IDE under /opt/ before running install.sh ) 
-* You'll need some way to publish your wheel command on topic "encoder" with type geometry_msgs.msg::Vector3. vec.x() is the left wheel, while vec.y() is the right. Grater than zero ( > 0) means forward, (<0) backward, (=0) means stop.
+Tested and built with ROS-kinetic, Python 2.7, with Ubuntu 16.04LTS, but should work with any version near enough.  
+Please make sure you have the following items set-up or at least you know what you're doing: 
+* [install ROS](http://wiki.ros.org/kinetic/Installation/Ubuntu) (tested in ROS-kinetic) 
+* [setup ROS catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace) (it is recommanded to source the setup in .bashrc) 
+* [Install the Arduino IDE](https://www.arduino.cc/en/Guide/Linux) ( I recommand you to put the Arduino IDE under /opt/ before running install.sh )
+* Add your user to dialout group as required by the Arduino IDE (Hint1:`sudo usermod -a -G dialout yourUserName`, Hint2: you have to login again, just reboot!)
+* (**For non-quadrature encoders aka tachometers**) We need to subscribe to topic `/cmd_vel`(_[geometry_msgs.msg::Twist](http://docs.ros.org/kinetic/api/geometry_msgs/html/msg/Twist.html)_) to determine the direction of the wheel rotation.
 
-### Costumization  
-To make sure you have the best result, it is necessary to make sure you have your parameters set-up, both in the script and on the Arduino.
+### Installation
 
-* For Arduino program  
-    A. Physical parameters:
+1. Go to your catkin directory, clone the project into folder /serial_odom along with all the submodules(Arduino library).
+   ```
+   cd ~/catkin_ws/src
+   git clone --recurse-submodules -j8  https://github.com/EwingKang/Simple-ROS-Arduino-odometry serial_odom
+   ```
+2. (**Optional**)Link(or move) the Ardunio program to workspace. It is possible to open the (project)/arduino_files/serial_odom/serial_odom.ino with Arduino IDE directly. But I find it faster to find if everything is under Arduino IDE directory. You'll see a link folder in the Arduino/ afterwards
+   ```
+   ln -s ~/catkin_ws/src/serial_odom/arduino_files/serial_odom/ ~/Arduino/
+   ```
+3. "Compile" the file with catkin_make so ros recgonize the package
+   ```
+   cd ~/catkin_ws/
+   catkin_make
+   ```
+4. Upload the Arduino code with Arduino IDE
+    Please [setup your vehicle parameter](vehicle_settings) first!
+
+### Vehicle settings
+To make sure you have the correct result, it is necessary to setup parameters matching your vehicle geometry. Since odometry is calculated "on-board" the Arduino, you should change the config header accordingly
+
+* Physical parameters in [vehicle_config.h](arduino_files/serial_odom/vehicle_config.h):
     ```
-    #define WHEEL_RAD 0.033f	// wheel radius in m
-    #define WHEEL_TOOTH 25		// tooth count
-    #define B 0.1f		        // b = distance between wheels
+    #define ENC_TYPE 4
+    #define ENC_ENABLE_CUMU		// enable cumulative counter
+
+   //========== VEHICLE CONFIG ==========//
+    #define WHEEL_RAD 0.033f		// wheel radius in m
+    #define B 0.1f					// b = wheel separation distance in m
+    #define ENC_REDUCTION 21		// encoder reduction ratio = (wheel rpm)/(encoder rpm)
+    #define MAX_WHEEL_RPS ((float)201/(float)60)	// maximum wheel revolution per second
+    
+    //========== ENCODER CONFIG ==========//
+    #define ENC_TPR 334				// encoder tooth count
+    #define WHEEL_PPR (ENC_TYPE*ENC_TPR*ENC_REDUCTION)	// pulse count per wheel revolution
     ```  
-    B. Loop system  
+* Special (cheap/homemade) Encoders:
+    Please check the  [Tachometer](tachometer) section below.
+
+### Run the node
+Hook up all your cable, make sure you have the correct device (in this case /dev/ttyACM0), and simply rosrun:
+```
+rosrun serial_odom serial_odom.py _port:=/dev/ttyACM0
+```
+The code will reset the Arduino automatically, and you'll see:
+1. Node starting
+2. Independent communication thread starting
+3. Rebooting Arduino
+4. Arduino standby message
+2. Signal to start Arduino
+6. First packet received and `/odom` is now published
+
+### Check the result
+In another terminal, you can check the result by:
+* rostopic
+    You be able to see the `/odom` topic with `rostopic list`. Use `rostopic echo /odom` to see the raw data
+* rviz:
+    Run `rviz` and the ROS visualization tool will begin. Set the frame to "_Odom_" and you'll see "_base_link_" moving around.
+
+### ROS node parameters
+All the parameters are under namespace `/serial_odom`
+* ~odom_topic (default: 'odom')
+* ~base_id' (default: 'base_link') # base frame id
+* ~odom_id' (default: 'odom') # odom frame id
+* ~enable_tf" (default: True)
+
+* ~port' (default: '/dev/ttyACM0') # port
+* ~baudrate' (default: '115200') ) # baudrate
+* ~serial_timeout' (default:'10') ) 
+* ~odom_freq' (default: '100') ) # hz of communication*
+* ~tx_freq' (default: '5') )      # hz of communication
+		
+* ~quadrature", True)
+* ~cmd_vel", 'cmd_vel')
+* ~cmd_vel_timeout', '3') ) #
+
+
+## Project details  
+TODO
+### Tachometer
+TODO
+### Encoder
+
+I'm using a cheap ass 175NTD(~5$) chinese-made encoder like [this one](https://world.taobao.com/item/9610181079.htm?spm=a21wu.10013406-tw.0.0.3ca71191qiAk3A) and it is super lame. Despite the claimed AB phase output with a 100 grid encoder plate, it just simply connot hangle that. And I have to make my own 25 grid encoder plate out of catdboard. Anyway, you're welcome to take this code and modified it to adopt proper A/B phase encoder, or even better, you can donate me some proper encoders and I'll change the code for you. Currectly, the direction information comes from a ROS topic, which piggyback the motor controller.
+
+### Python
+I'm using Python 2.7 that comes with Ubuntu-16.04 & ROS-kinetic, with following modules:
+* rospy and its peripherals
+* rostf
+* sys, time, math
+* serial ([pySerial](http://pyserial.readthedocs.io/en/latest/pyserial.html))
+* threading
+
+pySerial is used to easily handle the serial port and capture the data. Serial communication is handled in a seperate thread wih Python module "threading", which make it very elastic, powerful, and stable.  
+
+### Arduino
+On the Arduino side, data is struted and can be easily modified. [0x00 0xFF] is used as the starting signal of each packet.
+ 
+### Line-by-line explaination
+TODO: see wiki
+
+## Other costumizable parameters
+* Arduino sceduling system  
     ```
     #define SERIAL_PERD 100000  // Serial tx/rx check period, 100 ms is 10 Hz
     #define CAR_PERD 20000	    // Main calculation period, 20 ms is 50 Hz
     ```  
-    C. Encoder interrupt memory (important)
-    You have to make sure your expected_log < ENCODER_LOG_SIZ is true. For simplicity, the program will not raise any warning if you have any incorrect settings. Detailed explaination is in the Arduino section [below](#arduino).
-    ```
-    #define ENCODER_LOG_SIZE 20
-    ...
-    #define MAX_WHEEL_RPS 2		// maximum wheel revolution per second
-    expected_log = (float)MAX_WHEEL_RPS * (float)WHEEL_TOOTH / (1000000 / CAR_PERD);
-    ```  
-* For python script
+
+* ROS node (Python script)
   make sure your
   ```
   self.comm_freq = float( rospy.get_param('~odom_freq', '15') ) # hz of communication
@@ -59,63 +145,12 @@ To make sure you have the best result, it is necessary to make sure you have you
   ---------
   self.comm_freq = float( rospy.get_param('~odom_freq', '10') ) # hz of communication
   ```
-### Installation
 
-1. Go to your catkin directory, clone the project into folder /serial_odom.
-   ```
-   cd ~/catkin_ws/src
-   git clone https://github.com/EwingKang/Simple-ROS-Arduino-odometry serial_odom
-   ```
-2. Link(or move) the Ardunio program to workspace. It is possible to open the (project)/arduino_files/serial_odom/serial_odom.ino with Arduino IDE directly. But I find it faster to find if everything is under Arduino IDE directory. You'll see a link folder in the Arduino/ afterwards
-   ```
-   ln -s ~/catkin_ws/src/serial_odom/arduino_files/serial_odom/ ~/Arduino/
-   ```
-3. "Compile" the file with catkin_make so ros recgonize the package
-   ```
-   cd ~/catkin_ws/
-   catkin_make
-   ```
-4. Upload the Arduino code with Arduino IDE
-
-### Run the node
-Hook up all your cable, make sure you have the correct device (in this case /dev/ttyACM0), and simply rosrun:
-```
-rosrun serial_odom serial_odom.py _port:=/dev/ttyACM0
-```
-The code will reset the Arduino automatically, and you'll see:
-1. Arduino waiting for communication
-2. Arduino start sending odometry packet, serial is syncing 
-3. Serial is synced and first decodable packet will have a mismatched sequence number.
-4. Now the serial odometry is working.
-  
-## Project details  
-
-### Encoder
-**IMPORTANT: This project is bulid around a single phase encoder**  
-I'm using a cheap ass 175NTD(~5$) chinese-made encoder like [this one](https://world.taobao.com/item/9610181079.htm?spm=a21wu.10013406-tw.0.0.3ca71191qiAk3A) and it is super lame. Despite the claimed AB phase output with a 100 grid encoder plate, it just simply connot hangle that. And I have to make my own 25 grid encoder plate out of catdboard. Anyway, you're welcome to take this code and modified it to adopt proper A/B phase encoder, or even better, you can donate me some proper encoders and I'll change the code for you. Currectly, the direction information comes from a ROS topic, which piggyback the motor controller.
-
-### Python
-I'm using Python 2.7 that comes with Ubuntu-16.04 & ROS-kinetic, with following modules:
-* rospy and its peripherals
-* rostf
-* sys, time, math
-* serial ([pySerial](http://pyserial.readthedocs.io/en/latest/pyserial.html))
-* threading
-
-pySerial is used to easily handle the serial port and capture the data. Serial communication is handled in a seperate thread wih Python module "threading", which make it very elastic, powerful, and stable.  
-
-### Arduino
-On the Arduino side, data is struted and can be easily modified. 0x00FF is used as the starting signal of each packet.
- 
-### Line-by-line explaination
-see wiki  
-
-
-  
-## Authors
-
-* **Ewing Kang** - [EwingKang](https://github.com/EwingKang)
-
+## Version
+1.0
+## Author
+**Ewing Kang** - [EwingKang](https://github.com/EwingKang)
 ## License
-
-## TODO
+GPLv3
+## TODOs
+[] github wiki
