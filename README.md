@@ -6,8 +6,6 @@ I started this project because I'm done with rosserial: it is just too bulky for
     
   
 ## Getting Started
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
 ### Prerequisites
 Tested and built with ROS-kinetic, Python 2.7, with Ubuntu 16.04LTS, but should work with any version near enough.  
 Please make sure you have the following items set-up or at least you know what you're doing: 
@@ -24,7 +22,7 @@ Please make sure you have the following items set-up or at least you know what y
    cd ~/catkin_ws/src
    git clone --recurse-submodules -j8  https://github.com/EwingKang/Simple-ROS-Arduino-odometry serial_odom
    ```
-2. (**Optional**)Link(or move) the Ardunio program to workspace. It is possible to open the (project)/arduino_files/serial_odom/serial_odom.ino with Arduino IDE directly. But I find it faster to find if everything is under Arduino IDE directory. You'll see a link folder in the Arduino/ afterwards
+2. (**Optional**) Link(or move) the Ardunio program to workspace. It is possible to open the (project)/arduino_files/serial_odom/serial_odom.ino with Arduino IDE directly. But I find it faster to find if everything is under Arduino IDE directory. You'll see a link folder in the Arduino/ afterwards
    ```
    ln -s ~/catkin_ws/src/serial_odom/arduino_files/serial_odom/ ~/Arduino/
    ```
@@ -34,7 +32,7 @@ Please make sure you have the following items set-up or at least you know what y
    catkin_make
    ```
 4. Upload the Arduino code with Arduino IDE
-    Please [setup your vehicle parameter](vehicle_settings) first!
+    Please [setup your vehicle parameter](#vehicle_settings) first!
 
 ### Vehicle settings
 To make sure you have the correct result, it is necessary to setup parameters matching your vehicle geometry. Since odometry is calculated "on-board" the Arduino, you should change the config header accordingly
@@ -46,16 +44,16 @@ To make sure you have the correct result, it is necessary to setup parameters ma
 
    //========== VEHICLE CONFIG ==========//
     #define WHEEL_RAD 0.033f		// wheel radius in m
-    #define B 0.1f					// b = wheel separation distance in m
+    #define B 0.1f			// b = wheel separation distance in m
     #define ENC_REDUCTION 21		// encoder reduction ratio = (wheel rpm)/(encoder rpm)
     #define MAX_WHEEL_RPS ((float)201/(float)60)	// maximum wheel revolution per second
     
     //========== ENCODER CONFIG ==========//
-    #define ENC_TPR 334				// encoder tooth count
+    #define ENC_TPR 334			// encoder tooth count
     #define WHEEL_PPR (ENC_TYPE*ENC_TPR*ENC_REDUCTION)	// pulse count per wheel revolution
     ```  
 * Special (cheap/homemade) Encoders:
-    Please check the  [Tachometer](tachometer) section below.
+    Please check the  [Tachometer](#tachometer) section below.
 
 ### Run the node
 Hook up all your cable, make sure you have the correct device (in this case /dev/ttyACM0), and simply rosrun:
@@ -79,20 +77,20 @@ In another terminal, you can check the result by:
 
 ### ROS node parameters
 All the parameters are under namespace `/serial_odom`
-* ~odom_topic (default: 'odom')
-* ~base_id' (default: 'base_link') # base frame id
-* ~odom_id' (default: 'odom') # odom frame id
-* ~enable_tf" (default: True)
+* **~odom_topic** (default: 'odom')
+* **~base_id** (default: 'base_link') # base frame id
+* **~odom_id** (default: 'odom') # odom frame id
+* **~enable_tf** (default: True)
 
-* ~port' (default: '/dev/ttyACM0') # port
-* ~baudrate' (default: '115200') ) # baudrate
-* ~serial_timeout' (default:'10') ) 
-* ~odom_freq' (default: '100') ) # hz of communication*
-* ~tx_freq' (default: '5') )      # hz of communication
+* **~port** (default: '/dev/ttyACM0') # port
+* **~baudrate** (default: 115200) ) # baudrate
+* **~serial_timeout** (default: 10) ) 
+* **~odom_freq** (default: 100) ) # hz of communication*
+* **~tx_freq** (default: 5) )      # hz of communication
 		
-* ~quadrature", True)
-* ~cmd_vel", 'cmd_vel')
-* ~cmd_vel_timeout', '3') ) #
+* **~quadrature** (default: True)
+* **~cmd_vel** (default: 'cmd_vel')
+* **~cmd_vel_timeout** (default: 3) ) #
 
 
 ## Project details  
