@@ -1,188 +1,173 @@
 
-// for PinChangeInt library
-#define NO_PORTB_PIN_CHANGES    //digital pin8 to 13
-#define NO_PORTC_PIN_CHANGES    //analog input (https://www.arduino.cc/en/Reference/PortManipulation)
-#include "PinChangeInt/PinChangeInt.h"    // http://playground.arduino.cc/Main/PinChangeInt
+//========== LIBRARIES ==========//
+#include "EnableInterrupt/EnableInterrupt.h" 	//Software interrupt lib
+												//https://github.com/GreyGnome/EnableInterrupt
+												//PinChangeInt is deprecated
 
-// Ewing Car library
-#define ENCODER_LOG_SIZE 20
-#include "Wheel.h"
-#include "Car.h"
-#include "Odom.h"
+#include "vehicle_config.h"	// USER customize settings
+#include "car.h"			// Car library
+#include "uart_odom_msg.h"	// UART message
 
-// Vehicle settings
-#define WHEEL_RAD 0.033f		// wheel radius in m
-#define WHEEL_TOOTH 25		// tooth count
-#define MAX_WHEEL_RPS 2		// maximum wheel revolution per second
-#define B 0.1f			// b = wheel distance
+//========== DEBUG ==========//
+//#define DEBUG_SER_MON		// serial debug output
+const PROGMEM float expected_int_rate = WHEEL_PPR * MAX_WHEEL_RPS;
 
-// Main loop settings
-#define PRINT_PERD 750000       // 750 ms is 4/3 Hz
-#define SERIAL_PERD 100000     // 100 ms is 10 Hz
-#define CAR_PERD 20000			// 20 ms is 50 Hz
-const PROGMEM float expected_log = (float)MAX_WHEEL_RPS * (float)WHEEL_TOOTH / (1000000 / CAR_PERD);
+//========== STATE/COMM CONFIG ==========//
+#define SERIAL_PERD 20000		// 20  ms is  50 hz
+#define CAR_PERD 10000			// 10  ms is 100 hz
+#define PAUSED_PERD 500000		// 500 ms is   2 hz
 
-Car duckiebot(6, 7, 4, 5, WHEEL_RAD, WHEEL_TOOTH, B);
-Odom_msg odom;
-Msg_block *msg_block = (Msg_block *)&odom;
+//========== OBJECTS ==========//
+Car duckiebot(4, 5, 6, 7, WHEEL_RAD, WHEEL_PPR, B);		// general quadrature encoder
+//Car duckiebot(4, 5, WHEEL_RAD, WHEEL_PPR, B);			// only two pins if ENC_TYPE is 1 or 2
+Odom_Msg odom_msg;
+Odom_Msg_Bfr *odom_msg_ptr = (Odom_Msg_Bfr *)&odom_msg;	//byte block of Odom_msg
 
-unsigned long temp;
-int serial_cmd;
-bool start;
-uint8_t i=0;
+bool loop_on;
+uint8_t seq;
 
-//info
-const PROGMEM char end_info[] = "Serial ended:";
-
+// prototypes
 void decode_cmd(int &, bool &);
-void enable_msg(Odom_msg&);
+void set_msg_header(Odom_Msg&);
 
-//void messageCb(const geometry_msgs::Vector3&);
+#include "interrupt_stuff.h"
 
 void setup() {
-	memset(&odom, 0, sizeof(odom));
-	start = false;
-	
-	Serial.begin(57600);
+	// clear all
+	memset(&odom_msg, 0, sizeof(odom_msg));
+	loop_on = false;
+	seq = 0;
+	Serial.begin(115200);
 
-	serial_cmd = Serial.read();		// -1 if not available
-	
-	while(serial_cmd != 'B') { 
+	// hold here until starting signal
+	while(Serial.read() != 'B') { 
 		delay(500);
-		Serial.print("waiting ");
-		Serial.println(i);
-		i++;
-		serial_cmd = Serial.read();
+		#ifdef DEBUG_SER_MON
+			Serial.println("***Debug Mode, full text output***");
+		#endif
+		Serial.print("Waiting: ");
+		Serial.print(seq);
+		Serial.println(", \"B\" to start");
+		seq++;
 	}
-	start = true;
-	enable_msg(odom);
 	
-	PCintPort::attachInterrupt(duckiebot.wheel_L.pinA, risingLA, RISING);
-	PCintPort::attachInterrupt(duckiebot.wheel_L.pinB, risingLB, RISING);
-	PCintPort::attachInterrupt(duckiebot.wheel_R.pinA, risingRA, RISING);
-	PCintPort::attachInterrupt(duckiebot.wheel_R.pinB, risingRB, RISING);
+	// initialize object
+	loop_on = true;
+	seq = 0;
+	set_msg_header(odom_msg);
+	duckiebot.reset();
+	while(Serial.available()) { Serial.read(); }	// flush input buffer
+	
+	#if ENC_TYPE == 1
+	  enable_encoder_int_type1();
+	#elif ENC_TYPE == 2
+	  enable_encoder_int_type2();
+	#elif ENC_TYPE == 4
+	  enable_encoder_int_type4();
+	#else 
+	  #error incorrect encoder settings
+	#endif
 }
 
-
 void loop() {
-	static unsigned long last_pub, last_update;
+	static unsigned long last_pub, last_update;		// time keeper
 	unsigned long time_now = micros();
 	
-	if(start) {
+	if(loop_on) {
 		if ( (time_now - last_update) >= CAR_PERD) {
-			if( !duckiebot.update(time_now) ){
+			if( !duckiebot.update(time_now) ){		// update car
 				Serial.println("update err");
 			}
 			last_update = time_now;
 		}
 	 
 		if( (time_now - last_pub) >= SERIAL_PERD ) {
-			//odometry
-			odom.t_micro = time_now;		//seconds
-			odom.seq++;
-			duckiebot.GetPose(odom.x, odom.y, odom.th);
-			duckiebot.GetTwist(odom.v_x, odom.v_y, odom.omega);
+			// odometry message update
+			odom_msg.t_micro = time_now;			//micro seconds
+			odom_msg.seq++;
+			duckiebot.GetPose(odom_msg.x, odom_msg.y, odom_msg.th);			//pose: coordinate
+			duckiebot.GetTwist(odom_msg.v_x, odom_msg.v_y, odom_msg.omega);	//velocity in body frame
 			
 			//sent data
-			/*Serial.print("x:");
-			Serial.print(odom.x);
-			Serial.print("y:");
-			Serial.print(odom.y);
-			Serial.print("th:");
-			Serial.println(odom.omega);*/
-			Serial.write((uint8_t*)msg_block, sizeof(*msg_block));
+			#ifdef DEBUG_SER_MON
+				//Serial.print("x:");
+				//Serial.print(odom_msg.x);
+				//Serial.print("y:");
+				//Serial.print(odom_msg.y);
+				//Serial.print("th:");
+				//Serial.println(odom_msg.omega);
+				Serial.print("A dt:");
+				Serial.print(duckiebot.wheel_l.get_count());
+				Serial.print("c:");
+				Serial.print(duckiebot.wheel_l.cumulative_cntr());
+				Serial.print("R:");
+				Serial.println(duckiebot.wheel_l.cumulative_revo());
+			#else
+				Serial.write((uint8_t*)odom_msg_ptr, sizeof(*odom_msg_ptr));
+			#endif
 			
-			serial_cmd = Serial.read();
-			decode_cmd(serial_cmd, start);
+			//input parsing
+			decode_cmd(Serial.read(), loop_on);
 			last_pub = time_now;
 		}
-	}else {
-		if( (time_now - last_pub) >= SERIAL_PERD ) {
+	}else {		//if (loop_on)
+		if( (time_now - last_pub) >= PAUSED_PERD ) {
 			Serial.print("Paused:");
-			Serial.println(i);
-			i++;
+			Serial.println(seq);
+			seq++;
 			last_pub = time_now;
 		}
-		serial_cmd = Serial.read();
-		decode_cmd(serial_cmd, start);
+		decode_cmd(Serial.read(), loop_on);		// continuous cmd parsing if not looping
 	}
 
 }
 
-
-void decode_cmd(int &cmd, bool &start) {
-	if(cmd == -1) return;		//no input, do nothing
+/*******************************************************************
+			decode command
+	Func:
+	Input: 
+	Output:
+	Note: 
+*******************************************************************/
+void decode_cmd(int cmd, bool &loop_on) {
+	if(cmd == -1) return;		///no input, do nothing
 	
-	if(cmd == 'B') {
-		if(start) {
-			memset(&odom, 0, sizeof(odom));
-			start = false;
-			Serial.println(end_info);
-			i = 0;
-		}else {
-			start = true;
-			enable_msg(odom);
+	if(cmd == 'P') {			/// system toggle pause
+		if(loop_on) {				// pause
+			loop_on = false;
+			duckiebot.pause(true);
+		}else {						// start
+			loop_on = true;
+			set_msg_header(odom_msg);
+			duckiebot.pause(false);
 		}
-	}else if(cmd == 'R') {
+	}else if(cmd == 'R') {		/// system reset
+		loop_on = false;
 		duckiebot.reset();
-	}else{
-		duckiebot.set_direction(cmd);
+		memset(&odom_msg, 0, sizeof(odom_msg));
+		seq = 0;
+		set_msg_header(odom_msg);
+	}else if(cmd == 'B') {		/// system start
+		loop_on = true;
+		set_msg_header(odom_msg);
+		duckiebot.pause(false);
+	}else{						/// decode direction command
+		#if ENC_TYPE == 1 || ENC_TYPE == 2
+		  duckiebot.set_direction(cmd);
+		#endif
 	}
-
-}
-
-void enable_msg(Odom_msg& odom) {
-	memset(&(odom.flagA), 0, sizeof(odom.flagA));
-	memset(&(odom.flagB), -1, sizeof(odom.flagB));
 	return;
 }
 
-
-/* This is super ugly, unfortunately, OO is not an option with PinChangeInt lib*/
-void risingLA(void) {
-	temp = micros();
-	duckiebot.wheel_L.risingA( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_L.pinA);
-	PCintPort::attachInterrupt(duckiebot.wheel_L.pinA, fallingLA, FALLING); //attach the falling end
-}
-void fallingLA(void) {
-	temp = micros();
-	duckiebot.wheel_L.fallingA( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_L.pinA);
-	PCintPort::attachInterrupt(duckiebot.wheel_L.pinA, risingLA, RISING); //attach the falling end
-}
-void risingLB(void) {
-	temp = micros();
-	duckiebot.wheel_L.risingB( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_L.pinB);
-	PCintPort::attachInterrupt(duckiebot.wheel_L.pinB, fallingLB, FALLING); //attach the falling end
-}
-void fallingLB(void) {
-	temp = micros();
-	duckiebot.wheel_L.fallingB( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_L.pinB);
-	PCintPort::attachInterrupt(duckiebot.wheel_L.pinB, risingLB, RISING); //attach the falling end
-}
-void risingRA(void) {
-	temp = micros();
-	duckiebot.wheel_R.risingA( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_R.pinA);
-	PCintPort::attachInterrupt(duckiebot.wheel_R.pinA, fallingRA, FALLING); //attach the falling end
-}
-void fallingRA(void) {
-	duckiebot.wheel_R.fallingA( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_R.pinA);
-	PCintPort::attachInterrupt(duckiebot.wheel_R.pinA, risingRA, RISING); //attach the falling end
-}
-void risingRB(void) {
-	temp = micros();
-	duckiebot.wheel_R.risingB( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_R.pinB);
-	PCintPort::attachInterrupt(duckiebot.wheel_R.pinB, fallingRB, FALLING); //attach the falling end
-}
-void fallingRB(void) {
-	temp = micros();
-	duckiebot.wheel_R.fallingB( temp );
-	PCintPort::detachInterrupt(duckiebot.wheel_R.pinB);
-	PCintPort::attachInterrupt(duckiebot.wheel_R.pinB, risingRB, RISING); //attach the falling end
+/*******************************************************************
+			set message header
+	Func:
+	Input: 
+	Output:
+	Note: 
+*******************************************************************/
+void set_msg_header(Odom_Msg& odom_msg) {
+	memset(&(odom_msg.headerA), 0x00, sizeof(odom_msg.headerA));
+	memset(&(odom_msg.headerB), 0xFF, sizeof(odom_msg.headerB));
+	return;
 }
